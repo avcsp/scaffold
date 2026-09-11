@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"scaffold/internal/logger"
 	"scaffold/internal/router"
 )
 
@@ -19,19 +20,24 @@ const shutdownTimeout = 30 * time.Second
 type Server struct {
 	httpServer *http.Server
 	router     *router.Router
+	log        *slog.Logger
 	ready      atomic.Bool
 	hooks      []func()
 }
 
 // New creates a Server that binds the router to the given address
 // and registers /probe/live and /probe/ready endpoints.
+// Initializes both scaffold and app loggers automatically.
 func New(r *router.Router, addr string) *Server {
+	logs := logger.Init()
+
 	s := &Server{
 		httpServer: &http.Server{
 			Addr:    addr,
 			Handler: r.Handler(),
 		},
 		router: r,
+		log:    logs.Scaffold,
 	}
 
 	s.ready.Store(true)
@@ -56,14 +62,15 @@ func (s *Server) Start() {
 	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
 
 	go func() {
-		log.Printf("server listening on %s", s.httpServer.Addr)
+		s.log.Info("server listening on " + s.httpServer.Addr)
 		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server error: %v", err)
+			s.log.Error("server error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
 	<-stop
-	log.Println("shutdown signal received")
+	s.log.Info("shutdown signal received")
 
 	// Mark not ready so k8s stops routing traffic
 	s.ready.Store(false)
@@ -73,15 +80,15 @@ func (s *Server) Start() {
 	defer cancel()
 
 	if err := s.httpServer.Shutdown(ctx); err != nil {
-		log.Printf("http shutdown error: %v", err)
+		s.log.Error("http shutdown error", "error", err)
 	}
-	log.Println("http server drained")
+	s.log.Info("http server drained")
 
 	// Run shutdown hooks
 	for _, fn := range s.hooks {
 		fn()
 	}
-	log.Println("shutdown complete")
+	s.log.Info("shutdown complete")
 }
 
 func (s *Server) liveHandler(w http.ResponseWriter, _ *http.Request) {
