@@ -1,11 +1,16 @@
 package main
 
 import (
+	"fmt"
+	"scaffold/internal/config"
 	"scaffold/internal/router"
 	"scaffold/internal/server"
 )
 
 func main() {
+
+	// Config
+	config.Load(".env")
 
 	// Initialize
 	Router := router.New()
@@ -14,6 +19,6 @@ func main() {
 	Routes(Router)
 
 	// Dispatch
-	Server := server.New(Router, ":8080")
+	Server := server.New(Router, fmt.Sprintf("0.0.0.0:%s", config.Getenv("PORT", "8080")))
 	Server.Start()
 }
