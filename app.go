@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"scaffold/internal/router"
+	"scaffold/internal/server"
 )
 
 func main() {
@@ -27,11 +27,7 @@ func main() {
 
 	})
 
-	// Health
-	Router.Get("/health", func(w http.ResponseWriter, req *http.Request) {
-		w.Write([]byte("ok"))
-	})
-
 	// Dispatch
-	log.Fatal(Router.Serve(":8080"))
+	Server := server.New(Router, ":8080")
+	Server.Start()
 }

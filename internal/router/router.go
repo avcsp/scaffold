@@ -60,6 +60,11 @@ func (r *Router) Delete(pattern string, h http.HandlerFunc, mw ...Middleware) {
 	r.Handle("DELETE", pattern, h, mw...)
 }
 
+// Handler returns the underlying http.Handler for use with http.Server.
+func (r *Router) Handler() http.Handler {
+	return r.mux
+}
+
 // Serve starts the HTTP server on the given address.
 func (r *Router) Serve(addr string) error {
 	return http.ListenAndServe(addr, r.mux)
