@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"scaffold/internal/config"
-	sctx "scaffold/internal/context"
+	"scaffold/internal/engine"
 )
 
 // CORS returns a middleware that handles Cross-Origin Resource Sharing.
@@ -15,7 +15,7 @@ import (
 //   - CORS_METHODS: comma-separated allowed methods (default "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 //   - CORS_HEADERS: comma-separated allowed headers (default "Content-Type,Authorization")
 //   - CORS_MAX_AGE: preflight cache duration in seconds (default "86400")
-func CORS(next sctx.HandlerFunc) sctx.HandlerFunc {
+func CORS(next engine.HandlerFunc) engine.HandlerFunc {
 	origins := config.Getenv("CORS_ORIGINS", "*")
 	methods := config.Getenv("CORS_METHODS", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 	headers := config.Getenv("CORS_HEADERS", "Content-Type,Authorization")
@@ -26,7 +26,7 @@ func CORS(next sctx.HandlerFunc) sctx.HandlerFunc {
 		allowedOrigins[i] = strings.TrimSpace(allowedOrigins[i])
 	}
 
-	return func(c *sctx.Context) {
+	return func(c *engine.Context) {
 		origin := c.Request.Header.Get("Origin")
 		allowed := matchOrigin(origin, allowedOrigins)
 

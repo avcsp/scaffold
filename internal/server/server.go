@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	sctx "scaffold/internal/context"
+	"scaffold/internal/engine"
 	"scaffold/internal/middleware"
 	"scaffold/internal/router"
 )
@@ -89,11 +89,11 @@ func (s *Server) Start() {
 	s.log.Info("shutdown complete")
 }
 
-func (s *Server) liveHandler(c *sctx.Context) {
+func (s *Server) liveHandler(c *engine.Context) {
 	c.String(http.StatusOK, "ok")
 }
 
-func (s *Server) readyHandler(c *sctx.Context) {
+func (s *Server) readyHandler(c *engine.Context) {
 	if s.ready.Load() {
 		c.String(http.StatusOK, "ok")
 		return

@@ -5,12 +5,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	sctx "scaffold/internal/context"
+	"scaffold/internal/engine"
 )
 
 func TestBasicRoute(t *testing.T) {
 	r := New()
-	r.Get("/health", func(c *sctx.Context) {
+	r.Get("/health", func(c *engine.Context) {
 		c.String(http.StatusOK, "ok")
 	})
 
@@ -28,7 +28,7 @@ func TestBasicRoute(t *testing.T) {
 
 func TestAllMethods(t *testing.T) {
 	r := New()
-	handler := func(c *sctx.Context) {
+	handler := func(c *engine.Context) {
 		c.Status(http.StatusOK)
 	}
 
@@ -51,13 +51,13 @@ func TestAllMethods(t *testing.T) {
 
 func TestGlobalMiddleware(t *testing.T) {
 	r := New()
-	r.Use(func(next sctx.HandlerFunc) sctx.HandlerFunc {
-		return func(c *sctx.Context) {
+	r.Use(func(next engine.HandlerFunc) engine.HandlerFunc {
+		return func(c *engine.Context) {
 			c.Header("X-Global", "applied")
 			next(c)
 		}
 	})
-	r.Get("/test", func(c *sctx.Context) {
+	r.Get("/test", func(c *engine.Context) {
 		c.Status(http.StatusOK)
 	})
 
@@ -74,9 +74,9 @@ func TestMiddlewareOrder(t *testing.T) {
 	r := New()
 	var order []string
 
-	makeMW := func(name string) sctx.Middleware {
-		return func(next sctx.HandlerFunc) sctx.HandlerFunc {
-			return func(c *sctx.Context) {
+	makeMW := func(name string) engine.Middleware {
+		return func(next engine.HandlerFunc) engine.HandlerFunc {
+			return func(c *engine.Context) {
 				order = append(order, name+"-before")
 				next(c)
 				order = append(order, name+"-after")
@@ -86,7 +86,7 @@ func TestMiddlewareOrder(t *testing.T) {
 
 	r.Use(makeMW("A"))
 	r.Use(makeMW("B"))
-	r.Get("/order", func(c *sctx.Context) {
+	r.Get("/order", func(c *engine.Context) {
 		order = append(order, "handler")
 		c.Status(http.StatusOK)
 	})
@@ -109,7 +109,7 @@ func TestMiddlewareOrder(t *testing.T) {
 func TestGroupPrefix(t *testing.T) {
 	r := New()
 	r.Group("/api/v1", func(g *Group) {
-		g.Get("/users", func(c *sctx.Context) {
+		g.Get("/users", func(c *engine.Context) {
 			c.String(http.StatusOK, "users")
 		})
 	})
@@ -128,25 +128,25 @@ func TestGroupPrefix(t *testing.T) {
 
 func TestGroupMiddleware(t *testing.T) {
 	r := New()
-	r.Use(func(next sctx.HandlerFunc) sctx.HandlerFunc {
-		return func(c *sctx.Context) {
+	r.Use(func(next engine.HandlerFunc) engine.HandlerFunc {
+		return func(c *engine.Context) {
 			c.Header("X-Global", "yes")
 			next(c)
 		}
 	})
 
-	r.Get("/public", func(c *sctx.Context) {
+	r.Get("/public", func(c *engine.Context) {
 		c.Status(http.StatusOK)
 	})
 
 	r.Group("/admin", func(g *Group) {
-		g.Use(func(next sctx.HandlerFunc) sctx.HandlerFunc {
-			return func(c *sctx.Context) {
+		g.Use(func(next engine.HandlerFunc) engine.HandlerFunc {
+			return func(c *engine.Context) {
 				c.Header("X-Auth", "yes")
 				next(c)
 			}
 		})
-		g.Get("/dashboard", func(c *sctx.Context) {
+		g.Get("/dashboard", func(c *engine.Context) {
 			c.Status(http.StatusOK)
 		})
 	})
@@ -178,7 +178,7 @@ func TestNestedGroups(t *testing.T) {
 	r := New()
 	r.Group("/api", func(g *Group) {
 		g.Group("/v1", func(g2 *Group) {
-			g2.Get("/items", func(c *sctx.Context) {
+			g2.Get("/items", func(c *engine.Context) {
 				c.String(http.StatusOK, "items")
 			})
 		})
@@ -198,9 +198,9 @@ func TestNestedGroups(t *testing.T) {
 
 func TestNestedGroupMiddleware(t *testing.T) {
 	var order []string
-	makeMW := func(name string) sctx.Middleware {
-		return func(next sctx.HandlerFunc) sctx.HandlerFunc {
-			return func(c *sctx.Context) {
+	makeMW := func(name string) engine.Middleware {
+		return func(next engine.HandlerFunc) engine.HandlerFunc {
+			return func(c *engine.Context) {
 				order = append(order, name)
 				next(c)
 			}
@@ -213,7 +213,7 @@ func TestNestedGroupMiddleware(t *testing.T) {
 		g.Use(makeMW("group-a"))
 		g.Group("/b", func(g2 *Group) {
 			g2.Use(makeMW("group-b"))
-			g2.Get("/c", func(c *sctx.Context) {
+			g2.Get("/c", func(c *engine.Context) {
 				order = append(order, "handler")
 				c.Status(http.StatusOK)
 			})
@@ -238,18 +238,18 @@ func TestNestedGroupMiddleware(t *testing.T) {
 func TestPerRouteMiddleware(t *testing.T) {
 	r := New()
 
-	routeMW := func(next sctx.HandlerFunc) sctx.HandlerFunc {
-		return func(c *sctx.Context) {
+	routeMW := func(next engine.HandlerFunc) engine.HandlerFunc {
+		return func(c *engine.Context) {
 			c.Header("X-Route", "yes")
 			next(c)
 		}
 	}
 
-	r.Get("/with-mw", func(c *sctx.Context) {
+	r.Get("/with-mw", func(c *engine.Context) {
 		c.Status(http.StatusOK)
 	}, routeMW)
 
-	r.Get("/without-mw", func(c *sctx.Context) {
+	r.Get("/without-mw", func(c *engine.Context) {
 		c.Status(http.StatusOK)
 	})
 
@@ -270,9 +270,9 @@ func TestPerRouteMiddleware(t *testing.T) {
 
 func TestAllThreeLevels(t *testing.T) {
 	var order []string
-	makeMW := func(name string) sctx.Middleware {
-		return func(next sctx.HandlerFunc) sctx.HandlerFunc {
-			return func(c *sctx.Context) {
+	makeMW := func(name string) engine.Middleware {
+		return func(next engine.HandlerFunc) engine.HandlerFunc {
+			return func(c *engine.Context) {
 				order = append(order, name)
 				next(c)
 			}
@@ -283,7 +283,7 @@ func TestAllThreeLevels(t *testing.T) {
 	r.Use(makeMW("global"))
 	r.Group("/api", func(g *Group) {
 		g.Use(makeMW("group"))
-		g.Get("/data", func(c *sctx.Context) {
+		g.Get("/data", func(c *engine.Context) {
 			order = append(order, "handler")
 			c.Status(http.StatusOK)
 		}, makeMW("route"))
@@ -306,7 +306,7 @@ func TestAllThreeLevels(t *testing.T) {
 
 func TestPathParams(t *testing.T) {
 	r := New()
-	r.Get("/users/{id}", func(c *sctx.Context) {
+	r.Get("/users/{id}", func(c *engine.Context) {
 		c.String(http.StatusOK, "user:"+c.Param("id"))
 	})
 
@@ -325,7 +325,7 @@ func TestPathParams(t *testing.T) {
 func TestGroupPathParams(t *testing.T) {
 	r := New()
 	r.Group("/api", func(g *Group) {
-		g.Get("/users/{id}/posts/{postID}", func(c *sctx.Context) {
+		g.Get("/users/{id}/posts/{postID}", func(c *engine.Context) {
 			c.String(http.StatusOK, "user:"+c.Param("id")+":post:"+c.Param("postID"))
 		})
 	})
@@ -344,7 +344,7 @@ func TestGroupPathParams(t *testing.T) {
 
 func TestMethodNotAllowed(t *testing.T) {
 	r := New()
-	r.Get("/only-get", func(c *sctx.Context) {
+	r.Get("/only-get", func(c *engine.Context) {
 		c.Status(http.StatusOK)
 	})
 
@@ -359,7 +359,7 @@ func TestMethodNotAllowed(t *testing.T) {
 
 func TestNotFound(t *testing.T) {
 	r := New()
-	r.Get("/exists", func(c *sctx.Context) {
+	r.Get("/exists", func(c *engine.Context) {
 		c.Status(http.StatusOK)
 	})
 

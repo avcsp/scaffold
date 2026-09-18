@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	sctx "scaffold/internal/context"
+	"scaffold/internal/engine"
 	"scaffold/internal/router"
 )
 
@@ -21,7 +21,7 @@ func discardLogger() *slog.Logger {
 
 func newTestServer() *Server {
 	r := router.New()
-	r.Get("/test", func(c *sctx.Context) {
+	r.Get("/test", func(c *engine.Context) {
 		c.String(http.StatusOK, "ok")
 	})
 	return New(r, ":0", discardLogger())
@@ -121,7 +121,7 @@ func TestGracefulShutdownDrainsRequests(t *testing.T) {
 	requestStarted := make(chan struct{})
 	requestDone := make(chan struct{})
 
-	r.Get("/slow", func(c *sctx.Context) {
+	r.Get("/slow", func(c *engine.Context) {
 		close(requestStarted)
 		<-requestDone
 		c.String(http.StatusOK, "completed")
@@ -184,7 +184,7 @@ func TestShutdownHooksRunAfterDrain(t *testing.T) {
 	requestDone := make(chan struct{})
 	var timeline []string
 
-	r.Get("/slow", func(c *sctx.Context) {
+	r.Get("/slow", func(c *engine.Context) {
 		close(requestStarted)
 		<-requestDone
 		timeline = append(timeline, "request-done")

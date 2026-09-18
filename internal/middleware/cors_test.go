@@ -6,10 +6,10 @@ import (
 	"os"
 	"testing"
 
-	sctx "scaffold/internal/context"
+	"scaffold/internal/engine"
 )
 
-func corsHandler(c *sctx.Context) {
+func corsHandler(c *engine.Context) {
 	c.String(http.StatusOK, "ok")
 }
 
@@ -20,7 +20,7 @@ func serveCORS(origin string) *httptest.ResponseRecorder {
 		req.Header.Set("Origin", origin)
 	}
 	rec := httptest.NewRecorder()
-	c := sctx.New(rec, req)
+	c := engine.New(rec, req)
 	handler(c)
 	return rec
 }
@@ -63,7 +63,7 @@ func TestCORSPreflight(t *testing.T) {
 	req := httptest.NewRequest("OPTIONS", "/test", nil)
 	req.Header.Set("Origin", "http://example.com")
 	rec := httptest.NewRecorder()
-	c := sctx.New(rec, req)
+	c := engine.New(rec, req)
 	handler(c)
 
 	if rec.Code != http.StatusNoContent {
@@ -91,14 +91,14 @@ func TestCORSPreflightDoesNotCallNext(t *testing.T) {
 	os.Unsetenv("CORS_ORIGINS")
 	called := false
 
-	handler := CORS(func(c *sctx.Context) {
+	handler := CORS(func(c *engine.Context) {
 		called = true
 	})
 
 	req := httptest.NewRequest("OPTIONS", "/test", nil)
 	req.Header.Set("Origin", "http://example.com")
 	rec := httptest.NewRecorder()
-	c := sctx.New(rec, req)
+	c := engine.New(rec, req)
 	handler(c)
 
 	if called {
