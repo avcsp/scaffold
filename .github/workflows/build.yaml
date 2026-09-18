@@ -32,8 +32,8 @@ jobs:
 
       - name: docker::build
         run:
-          docker build --build-arg version=${{ env.version }} --tag ghcr.io/avcsp/scaffold:${{ env.version }} .
+          docker build --build-arg version=${{ env.version }} --tag ghcr.io/${{ github.repository }}:${{ env.version }} .
 
       - name: docker::publish
         run:
-          docker push ghcr.io/avcsp/scaffold:${{ env.version }}
+          docker push ghcr.io/${{ github.repository }}:${{ env.version }}
