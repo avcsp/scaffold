@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -13,12 +14,16 @@ import (
 	"scaffold/internal/router"
 )
 
+func discardLogger() *slog.Logger {
+	return slog.New(slog.NewJSONHandler(io.Discard, nil))
+}
+
 func newTestServer() *Server {
 	r := router.New()
 	r.Get("/test", func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte("ok"))
 	})
-	return New(r, ":0")
+	return New(r, ":0", discardLogger())
 }
 
 func TestLiveProbe(t *testing.T) {
@@ -123,7 +128,7 @@ func TestGracefulShutdownDrainsRequests(t *testing.T) {
 		w.Write([]byte("completed"))
 	})
 
-	s := New(r, ":0")
+	s := New(r, ":0", discardLogger())
 
 	// Use a real listener so http.Server tracks the connection
 	ln, err := net.Listen("tcp", ":0")
@@ -193,7 +198,7 @@ func TestShutdownHooksRunAfterDrain(t *testing.T) {
 		w.Write([]byte("ok"))
 	})
 
-	s := New(r, ":0")
+	s := New(r, ":0", discardLogger())
 	s.OnShutdown(func() {
 		timeline = append(timeline, "hook-ran")
 	})

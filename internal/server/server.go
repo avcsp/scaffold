@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"scaffold/internal/logger"
 	"scaffold/internal/router"
 )
 
@@ -27,17 +26,14 @@ type Server struct {
 
 // New creates a Server that binds the router to the given address
 // and registers /probe/live and /probe/ready endpoints.
-// Initializes both scaffold and app loggers automatically.
-func New(r *router.Router, addr string) *Server {
-	logs := logger.Init()
-
+func New(r *router.Router, addr string, log *slog.Logger) *Server {
 	s := &Server{
 		httpServer: &http.Server{
 			Addr:    addr,
 			Handler: r.Handler(),
 		},
 		router: r,
-		log:    logs.Scaffold,
+		log:    log,
 	}
 
 	s.ready.Store(true)
