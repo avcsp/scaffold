@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	sctx "scaffold/internal/context"
 	"scaffold/internal/router"
 )
 
@@ -20,8 +21,8 @@ func discardLogger() *slog.Logger {
 
 func newTestServer() *Server {
 	r := router.New()
-	r.Get("/test", func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte("ok"))
+	r.Get("/test", func(c *sctx.Context) {
+		c.String(http.StatusOK, "ok")
 	})
 	return New(r, ":0", discardLogger())
 }
@@ -100,10 +101,8 @@ func TestOnShutdownHooks(t *testing.T) {
 		close(done)
 	}()
 
-	// Give the server a moment to start listening
 	time.Sleep(50 * time.Millisecond)
 
-	// Send SIGTERM
 	syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 
 	select {
@@ -122,15 +121,14 @@ func TestGracefulShutdownDrainsRequests(t *testing.T) {
 	requestStarted := make(chan struct{})
 	requestDone := make(chan struct{})
 
-	r.Get("/slow", func(w http.ResponseWriter, _ *http.Request) {
+	r.Get("/slow", func(c *sctx.Context) {
 		close(requestStarted)
 		<-requestDone
-		w.Write([]byte("completed"))
+		c.String(http.StatusOK, "completed")
 	})
 
 	s := New(r, ":0", discardLogger())
 
-	// Use a real listener so http.Server tracks the connection
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatal(err)
@@ -143,7 +141,6 @@ func TestGracefulShutdownDrainsRequests(t *testing.T) {
 		close(shutdownComplete)
 	}()
 
-	// Start a slow request over TCP
 	respCh := make(chan *http.Response, 1)
 	go func() {
 		resp, err := http.Get("http://" + addr + "/slow")
@@ -154,21 +151,17 @@ func TestGracefulShutdownDrainsRequests(t *testing.T) {
 		respCh <- resp
 	}()
 
-	// Wait for the request to be in-flight
 	<-requestStarted
 
-	// Trigger shutdown while request is in-flight
 	s.ready.Store(false)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	go s.httpServer.Shutdown(ctx)
 
-	// Ready probe should be false
 	if s.ready.Load() {
 		t.Fatal("expected ready to be false after shutdown")
 	}
 
-	// Let the in-flight request complete
 	close(requestDone)
 
 	select {
@@ -191,11 +184,11 @@ func TestShutdownHooksRunAfterDrain(t *testing.T) {
 	requestDone := make(chan struct{})
 	var timeline []string
 
-	r.Get("/slow", func(w http.ResponseWriter, _ *http.Request) {
+	r.Get("/slow", func(c *sctx.Context) {
 		close(requestStarted)
 		<-requestDone
 		timeline = append(timeline, "request-done")
-		w.Write([]byte("ok"))
+		c.String(http.StatusOK, "ok")
 	})
 
 	s := New(r, ":0", discardLogger())
@@ -203,7 +196,6 @@ func TestShutdownHooksRunAfterDrain(t *testing.T) {
 		timeline = append(timeline, "hook-ran")
 	})
 
-	// Use a real listener
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatal(err)
@@ -215,14 +207,12 @@ func TestShutdownHooksRunAfterDrain(t *testing.T) {
 		s.httpServer.Serve(ln)
 	}()
 
-	// Start slow request over TCP
 	go func() {
 		http.Get("http://" + addr + "/slow")
 	}()
 
 	<-requestStarted
 
-	// Trigger shutdown
 	hooksDone := make(chan struct{})
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -237,7 +227,6 @@ func TestShutdownHooksRunAfterDrain(t *testing.T) {
 
 	time.Sleep(50 * time.Millisecond)
 
-	// Release the request
 	close(requestDone)
 
 	select {
@@ -246,7 +235,6 @@ func TestShutdownHooksRunAfterDrain(t *testing.T) {
 		t.Fatal("shutdown did not complete within 5s")
 	}
 
-	// Hook must run after request completes
 	if len(timeline) != 2 || timeline[0] != "request-done" || timeline[1] != "hook-ran" {
 		t.Fatalf("expected [request-done hook-ran], got %v", timeline)
 	}

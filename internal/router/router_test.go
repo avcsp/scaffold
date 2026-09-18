@@ -1,17 +1,17 @@
 package router
 
 import (
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	sctx "scaffold/internal/context"
 )
 
 func TestBasicRoute(t *testing.T) {
 	r := New()
-	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+	r.Get("/health", func(c *sctx.Context) {
+		c.String(http.StatusOK, "ok")
 	})
 
 	req := httptest.NewRequest("GET", "/health", nil)
@@ -28,8 +28,8 @@ func TestBasicRoute(t *testing.T) {
 
 func TestAllMethods(t *testing.T) {
 	r := New()
-	handler := func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	handler := func(c *sctx.Context) {
+		c.Status(http.StatusOK)
 	}
 
 	r.Get("/r", handler)
@@ -51,14 +51,14 @@ func TestAllMethods(t *testing.T) {
 
 func TestGlobalMiddleware(t *testing.T) {
 	r := New()
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			w.Header().Set("X-Global", "applied")
-			next.ServeHTTP(w, req)
-		})
+	r.Use(func(next sctx.HandlerFunc) sctx.HandlerFunc {
+		return func(c *sctx.Context) {
+			c.Header("X-Global", "applied")
+			next(c)
+		}
 	})
-	r.Get("/test", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	r.Get("/test", func(c *sctx.Context) {
+		c.Status(http.StatusOK)
 	})
 
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -74,21 +74,21 @@ func TestMiddlewareOrder(t *testing.T) {
 	r := New()
 	var order []string
 
-	makeMW := func(name string) Middleware {
-		return func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	makeMW := func(name string) sctx.Middleware {
+		return func(next sctx.HandlerFunc) sctx.HandlerFunc {
+			return func(c *sctx.Context) {
 				order = append(order, name+"-before")
-				next.ServeHTTP(w, req)
+				next(c)
 				order = append(order, name+"-after")
-			})
+			}
 		}
 	}
 
 	r.Use(makeMW("A"))
 	r.Use(makeMW("B"))
-	r.Get("/order", func(w http.ResponseWriter, _ *http.Request) {
+	r.Get("/order", func(c *sctx.Context) {
 		order = append(order, "handler")
-		w.WriteHeader(http.StatusOK)
+		c.Status(http.StatusOK)
 	})
 
 	req := httptest.NewRequest("GET", "/order", nil)
@@ -109,9 +109,8 @@ func TestMiddlewareOrder(t *testing.T) {
 func TestGroupPrefix(t *testing.T) {
 	r := New()
 	r.Group("/api/v1", func(g *Group) {
-		g.Get("/users", func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("users"))
+		g.Get("/users", func(c *sctx.Context) {
+			c.String(http.StatusOK, "users")
 		})
 	})
 
@@ -129,26 +128,26 @@ func TestGroupPrefix(t *testing.T) {
 
 func TestGroupMiddleware(t *testing.T) {
 	r := New()
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			w.Header().Set("X-Global", "yes")
-			next.ServeHTTP(w, req)
-		})
+	r.Use(func(next sctx.HandlerFunc) sctx.HandlerFunc {
+		return func(c *sctx.Context) {
+			c.Header("X-Global", "yes")
+			next(c)
+		}
 	})
 
-	r.Get("/public", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	r.Get("/public", func(c *sctx.Context) {
+		c.Status(http.StatusOK)
 	})
 
 	r.Group("/admin", func(g *Group) {
-		g.Use(func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				w.Header().Set("X-Auth", "yes")
-				next.ServeHTTP(w, req)
-			})
+		g.Use(func(next sctx.HandlerFunc) sctx.HandlerFunc {
+			return func(c *sctx.Context) {
+				c.Header("X-Auth", "yes")
+				next(c)
+			}
 		})
-		g.Get("/dashboard", func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusOK)
+		g.Get("/dashboard", func(c *sctx.Context) {
+			c.Status(http.StatusOK)
 		})
 	})
 
@@ -179,9 +178,8 @@ func TestNestedGroups(t *testing.T) {
 	r := New()
 	r.Group("/api", func(g *Group) {
 		g.Group("/v1", func(g2 *Group) {
-			g2.Get("/items", func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("items"))
+			g2.Get("/items", func(c *sctx.Context) {
+				c.String(http.StatusOK, "items")
 			})
 		})
 	})
@@ -200,12 +198,12 @@ func TestNestedGroups(t *testing.T) {
 
 func TestNestedGroupMiddleware(t *testing.T) {
 	var order []string
-	makeMW := func(name string) Middleware {
-		return func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	makeMW := func(name string) sctx.Middleware {
+		return func(next sctx.HandlerFunc) sctx.HandlerFunc {
+			return func(c *sctx.Context) {
 				order = append(order, name)
-				next.ServeHTTP(w, req)
-			})
+				next(c)
+			}
 		}
 	}
 
@@ -215,9 +213,9 @@ func TestNestedGroupMiddleware(t *testing.T) {
 		g.Use(makeMW("group-a"))
 		g.Group("/b", func(g2 *Group) {
 			g2.Use(makeMW("group-b"))
-			g2.Get("/c", func(w http.ResponseWriter, _ *http.Request) {
+			g2.Get("/c", func(c *sctx.Context) {
 				order = append(order, "handler")
-				w.WriteHeader(http.StatusOK)
+				c.Status(http.StatusOK)
 			})
 		})
 	})
@@ -240,22 +238,21 @@ func TestNestedGroupMiddleware(t *testing.T) {
 func TestPerRouteMiddleware(t *testing.T) {
 	r := New()
 
-	routeMW := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			w.Header().Set("X-Route", "yes")
-			next.ServeHTTP(w, req)
-		})
+	routeMW := func(next sctx.HandlerFunc) sctx.HandlerFunc {
+		return func(c *sctx.Context) {
+			c.Header("X-Route", "yes")
+			next(c)
+		}
 	}
 
-	r.Get("/with-mw", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	r.Get("/with-mw", func(c *sctx.Context) {
+		c.Status(http.StatusOK)
 	}, routeMW)
 
-	r.Get("/without-mw", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	r.Get("/without-mw", func(c *sctx.Context) {
+		c.Status(http.StatusOK)
 	})
 
-	// Route with per-route middleware
 	req := httptest.NewRequest("GET", "/with-mw", nil)
 	rec := httptest.NewRecorder()
 	r.mux.ServeHTTP(rec, req)
@@ -263,7 +260,6 @@ func TestPerRouteMiddleware(t *testing.T) {
 		t.Fatal("per-route middleware was not applied")
 	}
 
-	// Route without per-route middleware
 	req = httptest.NewRequest("GET", "/without-mw", nil)
 	rec = httptest.NewRecorder()
 	r.mux.ServeHTTP(rec, req)
@@ -274,12 +270,12 @@ func TestPerRouteMiddleware(t *testing.T) {
 
 func TestAllThreeLevels(t *testing.T) {
 	var order []string
-	makeMW := func(name string) Middleware {
-		return func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	makeMW := func(name string) sctx.Middleware {
+		return func(next sctx.HandlerFunc) sctx.HandlerFunc {
+			return func(c *sctx.Context) {
 				order = append(order, name)
-				next.ServeHTTP(w, req)
-			})
+				next(c)
+			}
 		}
 	}
 
@@ -287,9 +283,9 @@ func TestAllThreeLevels(t *testing.T) {
 	r.Use(makeMW("global"))
 	r.Group("/api", func(g *Group) {
 		g.Use(makeMW("group"))
-		g.Get("/data", func(w http.ResponseWriter, _ *http.Request) {
+		g.Get("/data", func(c *sctx.Context) {
 			order = append(order, "handler")
-			w.WriteHeader(http.StatusOK)
+			c.Status(http.StatusOK)
 		}, makeMW("route"))
 	})
 
@@ -297,7 +293,6 @@ func TestAllThreeLevels(t *testing.T) {
 	rec := httptest.NewRecorder()
 	r.mux.ServeHTTP(rec, req)
 
-	// global -> group -> route -> handler
 	expected := []string{"global", "group", "route", "handler"}
 	if len(order) != len(expected) {
 		t.Fatalf("expected %v, got %v", expected, order)
@@ -311,10 +306,8 @@ func TestAllThreeLevels(t *testing.T) {
 
 func TestPathParams(t *testing.T) {
 	r := New()
-	r.Get("/users/{id}", func(w http.ResponseWriter, req *http.Request) {
-		id := req.PathValue("id")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("user:" + id))
+	r.Get("/users/{id}", func(c *sctx.Context) {
+		c.String(http.StatusOK, "user:"+c.Param("id"))
 	})
 
 	req := httptest.NewRequest("GET", "/users/42", nil)
@@ -332,11 +325,8 @@ func TestPathParams(t *testing.T) {
 func TestGroupPathParams(t *testing.T) {
 	r := New()
 	r.Group("/api", func(g *Group) {
-		g.Get("/users/{id}/posts/{postID}", func(w http.ResponseWriter, req *http.Request) {
-			id := req.PathValue("id")
-			postID := req.PathValue("postID")
-			w.WriteHeader(http.StatusOK)
-			io.WriteString(w, "user:"+id+":post:"+postID)
+		g.Get("/users/{id}/posts/{postID}", func(c *sctx.Context) {
+			c.String(http.StatusOK, "user:"+c.Param("id")+":post:"+c.Param("postID"))
 		})
 	})
 
@@ -354,15 +344,14 @@ func TestGroupPathParams(t *testing.T) {
 
 func TestMethodNotAllowed(t *testing.T) {
 	r := New()
-	r.Get("/only-get", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	r.Get("/only-get", func(c *sctx.Context) {
+		c.Status(http.StatusOK)
 	})
 
 	req := httptest.NewRequest("POST", "/only-get", nil)
 	rec := httptest.NewRecorder()
 	r.mux.ServeHTTP(rec, req)
 
-	// stdlib returns 405 when method doesn't match a registered pattern
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("expected 405, got %d", rec.Code)
 	}
@@ -370,8 +359,8 @@ func TestMethodNotAllowed(t *testing.T) {
 
 func TestNotFound(t *testing.T) {
 	r := New()
-	r.Get("/exists", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	r.Get("/exists", func(c *sctx.Context) {
+		c.Status(http.StatusOK)
 	})
 
 	req := httptest.NewRequest("GET", "/nope", nil)
