@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"scaffold/internal/middleware"
 	"scaffold/internal/router"
 )
 
@@ -30,7 +31,7 @@ func New(r *router.Router, addr string, log *slog.Logger) *Server {
 	s := &Server{
 		httpServer: &http.Server{
 			Addr:    addr,
-			Handler: r.Handler(),
+			Handler: middleware.Recovery(r.Handler()),
 		},
 		router: r,
 		log:    log,
