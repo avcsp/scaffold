@@ -15,6 +15,7 @@ type Middleware func(HandlerFunc) HandlerFunc
 type Context struct {
 	Writer  http.ResponseWriter
 	Request *http.Request
+	store   map[string]any
 	aborted bool
 }
 
@@ -53,6 +54,33 @@ func (c *Context) Abort() {
 // IsAborted returns whether the context has been aborted.
 func (c *Context) IsAborted() bool {
 	return c.aborted
+}
+
+// Set stores a key-value pair on the context for the duration of the request.
+func (c *Context) Set(key string, value any) {
+	if c.store == nil {
+		c.store = make(map[string]any)
+	}
+	c.store[key] = value
+}
+
+// Get retrieves a value by key from the context store.
+// Returns the value and whether the key exists.
+func (c *Context) Get(key string) (any, bool) {
+	if c.store == nil {
+		return nil, false
+	}
+	val, ok := c.store[key]
+	return val, ok
+}
+
+// MustGet retrieves a value by key. Panics if the key doesn't exist.
+func (c *Context) MustGet(key string) any {
+	val, ok := c.Get(key)
+	if !ok {
+		panic("engine: key '" + key + "' not found in context")
+	}
+	return val
 }
 
 // BindJSON decodes the request body into dst.

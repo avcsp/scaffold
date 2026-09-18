@@ -107,6 +107,51 @@ func TestParam(t *testing.T) {
 	}
 }
 
+func TestSetAndGet(t *testing.T) {
+	c := New(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+
+	c.Set("db", "fake-db-conn")
+
+	val, ok := c.Get("db")
+	if !ok {
+		t.Fatal("expected key 'db' to exist")
+	}
+	if val != "fake-db-conn" {
+		t.Fatalf("expected 'fake-db-conn', got %v", val)
+	}
+}
+
+func TestGetMissing(t *testing.T) {
+	c := New(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+
+	_, ok := c.Get("nope")
+	if ok {
+		t.Fatal("expected key 'nope' to not exist")
+	}
+}
+
+func TestMustGet(t *testing.T) {
+	c := New(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+	c.Set("key", 42)
+
+	val := c.MustGet("key")
+	if val != 42 {
+		t.Fatalf("expected 42, got %v", val)
+	}
+}
+
+func TestMustGetPanics(t *testing.T) {
+	c := New(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("expected panic for missing key")
+		}
+	}()
+
+	c.MustGet("missing")
+}
+
 func TestQuery(t *testing.T) {
 	req := httptest.NewRequest("GET", "/search?q=hello&page=2", nil)
 	c := New(httptest.NewRecorder(), req)
