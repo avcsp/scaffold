@@ -30,7 +30,7 @@ func Init() Loggers {
 
 func defaultLevel() slog.Level {
 	switch os.Getenv("ENV") {
-	case "production":
+	case "prod":
 		return slog.LevelInfo
 	default:
 		return slog.LevelDebug

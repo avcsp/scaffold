@@ -73,7 +73,7 @@ func TestJSONOutput(t *testing.T) {
 }
 
 func TestDefaultLevelDebugInDev(t *testing.T) {
-	os.Setenv("ENV", "development")
+	os.Setenv("ENV", "dev")
 	defer os.Unsetenv("ENV")
 
 	level := defaultLevel()
@@ -82,8 +82,8 @@ func TestDefaultLevelDebugInDev(t *testing.T) {
 	}
 }
 
-func TestDefaultLevelInfoInProduction(t *testing.T) {
-	os.Setenv("ENV", "production")
+func TestDefaultLevelInfoInProd(t *testing.T) {
+	os.Setenv("ENV", "prod")
 	defer os.Unsetenv("ENV")
 
 	level := defaultLevel()
