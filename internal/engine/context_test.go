@@ -27,22 +27,6 @@ func TestJSON(t *testing.T) {
 	}
 }
 
-func TestError(t *testing.T) {
-	rec := httptest.NewRecorder()
-	c := New(rec, httptest.NewRequest("GET", "/", nil))
-
-	c.Error(http.StatusBadRequest, "bad input")
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", rec.Code)
-	}
-	var result map[string]string
-	json.NewDecoder(rec.Body).Decode(&result)
-	if result["error"] != "bad input" {
-		t.Fatalf("expected 'bad input', got %q", result["error"])
-	}
-}
-
 func TestAbortWithStatusJSON(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := New(rec, httptest.NewRequest("GET", "/", nil))

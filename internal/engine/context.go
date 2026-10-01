@@ -47,11 +47,6 @@ func (c *Context) JSON(status int, data any) {
 	json.NewEncoder(c.Writer).Encode(data)
 }
 
-// Error writes a JSON error response: {"error": msg}
-func (c *Context) Error(status int, msg string) {
-	c.JSON(status, map[string]string{"error": msg})
-}
-
 // AbortWithStatusJSON writes a JSON response and marks the context as aborted.
 // Subsequent middleware or handlers should check c.IsAborted() before proceeding.
 func (c *Context) AbortWithStatusJSON(status int, data any) {
