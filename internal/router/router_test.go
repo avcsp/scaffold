@@ -245,9 +245,9 @@ func TestPerRouteMiddleware(t *testing.T) {
 		}
 	}
 
-	r.Get("/with-mw", func(c *engine.Context) {
+	r.Get("/with-mw", routeMW, func(c *engine.Context) {
 		c.Status(http.StatusOK)
-	}, routeMW)
+	})
 
 	r.Get("/without-mw", func(c *engine.Context) {
 		c.Status(http.StatusOK)
@@ -283,10 +283,10 @@ func TestAllThreeLevels(t *testing.T) {
 	r.Use(makeMW("global"))
 	r.Group("/api", func(g *Group) {
 		g.Use(makeMW("group"))
-		g.Get("/data", func(c *engine.Context) {
+		g.Get("/data", makeMW("route"), func(c *engine.Context) {
 			order = append(order, "handler")
 			c.Status(http.StatusOK)
-		}, makeMW("route"))
+		})
 	})
 
 	req := httptest.NewRequest("GET", "/api/data", nil)
@@ -355,6 +355,31 @@ func TestMethodNotAllowed(t *testing.T) {
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("expected 405, got %d", rec.Code)
 	}
+}
+
+func TestRouteMissingHandlerPanics(t *testing.T) {
+	r := New()
+	mw := func(next engine.HandlerFunc) engine.HandlerFunc { return next }
+
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected panic when route has no handler")
+		}
+	}()
+	r.Get("/no-handler", mw)
+}
+
+func TestRouteMultipleHandlersPanics(t *testing.T) {
+	r := New()
+	h1 := func(c *engine.Context) { c.Status(http.StatusOK) }
+	h2 := func(c *engine.Context) { c.Status(http.StatusOK) }
+
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected panic when route has multiple handlers")
+		}
+	}()
+	r.Get("/two-handlers", h1, h2)
 }
 
 func TestNotFound(t *testing.T) {
