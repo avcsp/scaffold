@@ -13,6 +13,14 @@ import (
 	"gorm.io/gorm"
 )
 
+var instance *gorm.DB
+
+// Instance returns the database connection established by Connect.
+// Returns nil if DATABASE_DSN was not configured.
+func Instance() *gorm.DB {
+	return instance
+}
+
 // Connect opens a database connection if DATABASE_DSN is set in the environment.
 // Returns nil, nil if DATABASE_DSN is not present (database is optional).
 // Uses the scaffold logger for GORM query logging.
@@ -40,6 +48,7 @@ func Connect(log *slog.Logger) (*gorm.DB, error) {
 		return nil, fmt.Errorf("database connection failed: %w", err)
 	}
 
+	instance = db
 	log.Info("database connected")
 	return db, nil
 }

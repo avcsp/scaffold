@@ -3,6 +3,8 @@ package engine
 import (
 	"encoding/json"
 	"net/http"
+
+	"scaffold/internal/database"
 )
 
 // HandlerFunc is the scaffold handler signature.
@@ -24,6 +26,17 @@ func New(w http.ResponseWriter, r *http.Request) *Context {
 	return &Context{
 		Writer:  w,
 		Request: r,
+	}
+}
+
+// Import returns a built-in service by name. Panics if the name is unknown.
+// Supported: "db" returns *gorm.DB (nil if DATABASE_DSN was not configured).
+func (c *Context) Import(name string) any {
+	switch name {
+	case "db":
+		return database.Instance()
+	default:
+		panic("engine: unknown import '" + name + "'")
 	}
 }
 
