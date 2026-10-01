@@ -1,0 +1,16 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "make build && mv app tmp/app"
+  bin = "tmp/app"
+  full_bin = "set -a && [ -f .env ] && . ./.env; set +a; ./tmp/app"
+  include_ext = ["go", "html", "tmpl", "tpl"]
+  exclude_dir = ["tmp"]
+  delay = 100
+
+[log]
+  time = false
+
+[misc]
+  clean_on_exit = true

@@ -1,9 +1,12 @@
 ARCH ?= amd64
 
-default: run
+default: dev
 
 run:
 	@set -a && [ -f .env ] && . ./.env; set +a; go run .
+
+dev:
+	air
 
 build:
 	rm -rf app
