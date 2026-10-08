@@ -47,6 +47,18 @@ func CORS(next engine.HandlerFunc) engine.HandlerFunc {
 	}
 }
 
+// CORSHandler wraps an http.Handler with CORS, for use at the http.Handler
+// level (e.g. wrapping the entire mux alongside Recovery).
+func CORSHandler(next http.Handler) http.Handler {
+	wrapped := CORS(func(c *engine.Context) {
+		next.ServeHTTP(c.Writer, c.Request)
+	})
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		wrapped(engine.New(w, r))
+	})
+}
+
 func matchOrigin(origin string, allowed []string) string {
 	for _, a := range allowed {
 		if a == "*" {

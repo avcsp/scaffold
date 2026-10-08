@@ -32,7 +32,7 @@ func New(r *router.Router, addr string, log *slog.Logger) *Server {
 	s := &Server{
 		httpServer: &http.Server{
 			Addr:    addr,
-			Handler: middleware.Recovery(r.Handler()),
+			Handler: middleware.Recovery(middleware.CORSHandler(r.Handler())),
 		},
 		router: r,
 		log:    log,
