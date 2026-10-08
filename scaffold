@@ -17,7 +17,6 @@ SYNC_PATHS=(
 	Dockerfile
 	Makefile
 	.env.example
-	go.sum
 )
 
 usage() {
@@ -58,12 +57,6 @@ cmd_upgrade() {
 			echo "removed $path (deleted upstream)"
 		fi
 	done
-
-	# go.mod: take upstream's dependency list but keep the local module name.
-	local local_module
-	local_module=$(head -n1 go.mod | awk '{print $2}')
-	git show "$ref:go.mod" > go.mod
-	sed -i.bak "1s|.*|module $local_module|" go.mod && rm -f go.mod.bak
 
 	echo
 	echo "Scaffold files updated from $UPSTREAM_BRANCH. Review the diff, then:"
