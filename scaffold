@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# scaffold - utility for managing this app's github.com/avcsp/scaffold framework files.
+set -euo pipefail
+
+UPSTREAM_URL="${SCAFFOLD_REMOTE_URL:-git@github.com:avcsp/scaffold.git}"
+UPSTREAM_REMOTE="scaffold-upstream"
+UPSTREAM_BRANCH="${SCAFFOLD_BRANCH:-dev}"
+
+# Paths synced verbatim from upstream. Everything else (routes.go, .env, ...)
+# is app-owned and never touched.
+SYNC_PATHS=(
+	internal
+	app.go
+	.air.toml
+	.dockerignore
+	.gitignore
+	Dockerfile
+	Makefile
+	.env.example
+	go.sum
+)
+
+usage() {
+	cat <<EOF
+Usage: ./scaffold <command>
+
+Commands:
+  upgrade   Pull the latest framework files from $UPSTREAM_URL
+EOF
+}
+
+cmd_upgrade() {
+	if ! git rev-parse --git-dir >/dev/null 2>&1; then
+		echo "error: not a git repository" >&2
+		exit 1
+	fi
+
+	if ! git diff --quiet || ! git diff --cached --quiet; then
+		echo "error: working tree has uncommitted changes, commit or stash first" >&2
+		exit 1
+	fi
+
+	if ! git remote get-url "$UPSTREAM_REMOTE" >/dev/null 2>&1; then
+		git remote add "$UPSTREAM_REMOTE" "$UPSTREAM_URL"
+	fi
+
+	echo "Fetching $UPSTREAM_URL ($UPSTREAM_BRANCH)..."
+	git fetch "$UPSTREAM_REMOTE" "$UPSTREAM_BRANCH" --quiet
+
+	local ref="$UPSTREAM_REMOTE/$UPSTREAM_BRANCH"
+
+	for path in "${SYNC_PATHS[@]}"; do
+		if git cat-file -e "$ref:$path" 2>/dev/null; then
+			git checkout "$ref" -- "$path"
+			echo "updated $path"
+		elif [ -e "$path" ]; then
+			git rm -rq "$path"
+			echo "removed $path (deleted upstream)"
+		fi
+	done
+
+	# go.mod: take upstream's dependency list but keep the local module name.
+	local local_module
+	local_module=$(head -n1 go.mod | awk '{print $2}')
+	git show "$ref:go.mod" > go.mod
+	sed -i.bak "1s|.*|module $local_module|" go.mod && rm -f go.mod.bak
+
+	echo
+	echo "Scaffold files updated from $UPSTREAM_BRANCH. Review the diff, then:"
+	echo "  go mod tidy"
+	echo "  git add -A && git commit"
+}
+
+case "${1:-}" in
+	upgrade)
+		cmd_upgrade
+		;;
+	*)
+		usage
+		exit 1
+		;;
+esac
