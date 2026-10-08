@@ -8,8 +8,12 @@ A minimal Go HTTP framework named "Scaffold" built on `net/http.ServeMux`. This 
 app.go          entrypoint: config, logger, db, router, server wiring — framework-owned
 routes.go       route definitions — app-owned, this is where you work
 internal/       framework packages — framework-owned, never edit directly
+handlers/       app handlers, one package per {version}/{package} — app-owned
+middleware/     app middleware, one file per concern — app-owned
 scaffold        CLI to pull framework updates from github.com/avcsp/scaffold (./scaffold upgrade)
 ```
+
+Note the app's root `middleware/` is a different package from the framework's `internal/middleware/` (which holds `Recovery`/`CORS`) — same name, different owner, don't confuse the two.
 
 ### `internal/` packages
 
@@ -25,14 +29,16 @@ scaffold        CLI to pull framework updates from github.com/avcsp/scaffold (./
 
 ## Off-limits for app developers
 
-**Never edit files under `internal/`.** They are overwritten wholesale by `./scaffold upgrade`, which pulls `internal/`, `app.go`, `.air.toml`, `Dockerfile`, `Makefile`, `.dockerignore`, `.gitignore`, and `.env.example` from upstream and replaces them verbatim. Any local change to those files is silently lost on the next upgrade.
+**Never edit files under `internal/`.** They are overwritten wholesale by `./scaffold upgrade`, which pulls `internal/`, `app.go`, `.air.toml`, `Dockerfile`, `Makefile`, `.dockerignore`, `.gitignore`, `.env.example`, and `CLAUDE.md` from upstream and replaces them verbatim. Any local change to those files is silently lost on the next upgrade.
 
 **Treat `app.go` as framework-owned too** — it's in the sync path. If you need app-specific startup logic, add an `OnShutdown` hook or a new file in the `main` package rather than editing `app.go` directly; expect manual re-application after an upgrade if you do touch it.
 
 **Safe to edit freely** (never touched by `./scaffold upgrade`):
-    - `routes.go` — your routes and handlers
+    - `routes.go` — your route wiring
+    - `handlers/` — your handlers
+    - `middleware/` — your middleware (auth, logging, rate limiting, etc.)
     - `.env` — your local secrets/config (never committed)
-    - any new `.go` file you add to the `main` package, or new internal app packages outside `internal/` (e.g. `handlers/`, `models/`)
+    - any new `.go` file you add to the `main` package, or new app packages outside `internal/` (e.g. `models/`)
 
 If a framework package is missing something you need, don't patch it in place — that diff will be clobbered on the next upgrade. Either open it upstream in `github.com/avcsp/scaffold`, or build the extra behavior in your own app-owned code that calls into the framework's public API.
 

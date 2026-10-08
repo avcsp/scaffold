@@ -17,6 +17,7 @@ SYNC_PATHS=(
 	Dockerfile
 	Makefile
 	.env.example
+	CLAUDE.md
 )
 
 usage() {
